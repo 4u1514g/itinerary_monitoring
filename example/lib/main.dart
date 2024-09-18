@@ -76,7 +76,7 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       bottomNavigationBar: GestureDetector(
         onTap: () =>
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const SignIn())),
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const SignInSSE())),
         child: Container(
           margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(10)),

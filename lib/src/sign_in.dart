@@ -11,14 +11,14 @@ import 'package:itinerary_monitoring/helper/location_service.dart';
 import 'package:itinerary_monitoring/src/manager/manager_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class SignIn extends StatefulWidget {
-  const SignIn({super.key});
+class SignInSSE extends StatefulWidget {
+  const SignInSSE({super.key});
 
   @override
-  State<SignIn> createState() => _SignInState();
+  State<SignInSSE> createState() => _SignInSSEState();
 }
 
-class _SignInState extends State<SignIn> {
+class _SignInSSEState extends State<SignInSSE> {
   final account = TextEditingController();
   final password = TextEditingController();
   String error = '';

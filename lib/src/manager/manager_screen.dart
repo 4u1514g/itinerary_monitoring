@@ -383,7 +383,7 @@ class _ManagerScreenState extends State<ManagerScreen> {
                     SharedPreferences.getInstance().then((pref) => pref.remove('account'));
                     Navigator.pushAndRemoveUntil(
                         context,
-                        MaterialPageRoute(builder: (context) => const SignIn()),
+                        MaterialPageRoute(builder: (context) => const SignInSSE()),
                         (route) => route.isFirst);
                   },
                   child:
