@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
+import 'package:itinerary_monitoring/api/models/direction_data.dart';
 import 'package:itinerary_monitoring/api/models/employee_model.dart';
+import 'package:itinerary_monitoring/api/models/init_data.dart';
 import 'package:itinerary_monitoring/api/models/order_detail_model.dart';
 import 'package:itinerary_monitoring/api/models/order_model.dart';
 import 'package:itinerary_monitoring/api/models/user_model.dart';
@@ -17,10 +19,11 @@ Future<UserModel> login({String? account, String? pass}) async {
   return value;
 }
 
-Future<Map> getInit({String? token}) async {
+Future<InitData> getInit({String? token}) async {
   final headers = <String, dynamic>{r'token': token};
   final result = await dio.get("$baseUrl/init", options: Options(headers: headers));
-  return result.data;
+  final value = InitData.fromJson(result.data!);
+  return value;
 }
 
 Future<List<OrderModel>> getMyOrderToday({String? token}) async {
@@ -70,6 +73,17 @@ Future<OrderDetailModel> getOrderDetail({int? id, String? token}) async {
   return value;
 }
 
+Future<dynamic> updateTarget({int? id, String? token}) async {
+  final data = {"order_id": id};
+  final headers = <String, dynamic>{r'token': token};
+  final result = await dio.put(
+    "$baseUrl/order/my-order/update-target",
+    data: data,
+    options: Options(headers: headers),
+  );
+  return result.data;
+}
+
 Future<dynamic> updateOrder({int? id, String? token}) async {
   final queryParameters = <String, dynamic>{};
   final headers = <String, dynamic>{r'token': token};
@@ -81,9 +95,21 @@ Future<dynamic> updateOrder({int? id, String? token}) async {
   return result.data;
 }
 
-Future<dynamic> startSession({String? token}) async {
+Future<DirectionData> getDirection({String? token}) async {
   final headers = <String, dynamic>{r'token': token};
-  final result = await dio.post("$baseUrl/session/start", options: Options(headers: headers));
+  final result = await dio.get(
+    "$baseUrl/location/get-location-to-target",
+    options: Options(headers: headers),
+  );
+  final value = DirectionData.fromJson(result.data!);
+  return value;
+}
+
+Future<dynamic> startSession({double? lat, double? lng, String? token}) async {
+  final headers = <String, dynamic>{r'token': token};
+  final data = {"lat": lat, "lng": lng};
+  final result =
+      await dio.post("$baseUrl/session/start", data: data, options: Options(headers: headers));
   return result.data;
 }
 
@@ -129,5 +155,17 @@ Future<List<EmployeeModel>> getEmployeeRoute({String? date, int? id, String? tok
     options: Options(headers: headers),
   );
   var value = List<EmployeeModel>.from(result.data!.map((x) => EmployeeModel.fromJson(x)));
+  return value;
+}
+
+Future<DirectionData> getEmployeeDirection({int? id, String? token}) async {
+  final headers = <String, dynamic>{r'token': token};
+  final queryParameters = <String, dynamic>{r'employee_id': id};
+  final result = await dio.get(
+    "$baseUrl/manager/route-target-employee",
+    queryParameters: queryParameters,
+    options: Options(headers: headers),
+  );
+  final value = DirectionData.fromJson(result.data!);
   return value;
 }

@@ -45,12 +45,14 @@ class _CustomDatePickerState extends State<CustomDatePicker> {
                 return isSameDay(_selectedDay, day);
               },
               headerStyle: HeaderStyle(
+                  headerMargin: EdgeInsets.zero,
                   titleTextStyle:
                       const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: black),
                   titleTextFormatter: (date, locale) =>
                       DateFormat('MMMM yyyy', locale).format(date).capitalize(),
                   formatButtonVisible: false,
                   titleCentered: true),
+              daysOfWeekHeight: 30,
               daysOfWeekStyle: const DaysOfWeekStyle(
                   weekendStyle: TextStyle(
                       color: Color(0xffE53434), fontSize: 16, fontWeight: FontWeight.bold),
@@ -58,13 +60,11 @@ class _CustomDatePickerState extends State<CustomDatePicker> {
                       color: Color(0xff777777), fontSize: 16, fontWeight: FontWeight.bold)),
               weekendDays: const [DateTime.sunday],
               calendarStyle: CalendarStyle(
-                  cellMargin: const EdgeInsets.all(6),
                   todayDecoration: BoxDecoration(
                       color: Colors.white,
                       border: Border.all(color: Colors.blue),
                       shape: BoxShape.circle),
                   todayTextStyle: const TextStyle(fontSize: 15, color: black),
-                  tablePadding: const EdgeInsets.only(top: 15),
                   selectedDecoration: const BoxDecoration(color: orange, shape: BoxShape.circle),
                   selectedTextStyle: const TextStyle(color: white, fontSize: 15),
                   defaultTextStyle: const TextStyle(fontSize: 15, color: black)),

@@ -13,6 +13,7 @@ class EmployeeOrder extends StatefulWidget {
       required this.date,
       this.onClear,
       this.changePolylines,
+      this.onDirection,
       this.active = true,
       required this.listOrder,
       required this.name,
@@ -23,6 +24,7 @@ class EmployeeOrder extends StatefulWidget {
   final double height;
   final Function()? onClear;
   final Function()? changePolylines;
+  final Function? onDirection;
   final bool active;
   final List<OrderModel> listOrder;
   final String name;
@@ -34,7 +36,6 @@ class EmployeeOrder extends StatefulWidget {
 }
 
 class _EmployeeOrderState extends State<EmployeeOrder> {
-  List<OrderModel> listOrder = [];
   PanelController controller = PanelController();
 
   @override
@@ -42,64 +43,64 @@ class _EmployeeOrderState extends State<EmployeeOrder> {
     if (controller.isAttached) {
       controller.show();
     }
-    setState(() {
-      listOrder = widget.listOrder.reversed.toList();
-    });
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
-    return SlidingUpPanel(
-      isDraggable: widget.active,
-      color: Colors.transparent,
-      maxHeight: widget.height,
-      controller: controller,
-      panelBuilder: (sc) {
-        return Container(
-          decoration: const BoxDecoration(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(15)), color: white),
-          child: SingleChildScrollView(
-            controller: sc,
-            child: Column(
-              children: [
-                _info(),
-                Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 20),
-                    height: 1,
-                    color: const Color(0xffE8E8E8)),
-                const SizedBox(height: 20),
-                widget.listOrder.isEmpty
-                    ? Column(
-                        children: [
-                          const SizedBox(height: 100),
-                          Image(image: noResultAsset, width: 180),
-                          const SizedBox(height: 20),
-                          setText('Không tìm thấy đơn', 15, color: gray)
-                        ],
-                      )
-                    : Column(
-                        children: List.generate(widget.listOrder.length, (index) => _item(index))),
-                if (widget.listOrder.isNotEmpty && user.dataUser!.isManager!)
-                  GestureDetector(
-                    onTap: widget.changePolylines,
-                    child: Container(
-                      margin: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-                      height: 45,
-                      decoration:
-                          BoxDecoration(color: orange, borderRadius: BorderRadius.circular(10)),
-                      alignment: Alignment.center,
-                      child: setText(
-                          widget.isReality ? 'Xem đường đi chỉ dẫn' : 'Xem đường đi thực tế', 16,
-                          fontWeight: FontWeight.w600, color: white),
+    return IgnorePointer(
+      ignoring: !widget.active,
+      child: SlidingUpPanel(
+        color: Colors.transparent,
+        maxHeight: widget.height,
+        controller: controller,
+        panelBuilder: (sc) {
+          return Container(
+            decoration: const BoxDecoration(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(15)), color: white),
+            child: SingleChildScrollView(
+              controller: sc,
+              child: Column(
+                children: [
+                  _info(),
+                  Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      height: 1,
+                      color: const Color(0xffE8E8E8)),
+                  const SizedBox(height: 20),
+                  widget.listOrder.isEmpty
+                      ? Column(
+                          children: [
+                            const SizedBox(height: 100),
+                            Image(image: noResultAsset, width: 180),
+                            const SizedBox(height: 20),
+                            setText('Không tìm thấy đơn', 15, color: gray)
+                          ],
+                        )
+                      : Column(
+                          children:
+                              List.generate(widget.listOrder.length, (index) => _item(index))),
+                  if (widget.listOrder.isNotEmpty && user.dataUser!.isManager!)
+                    GestureDetector(
+                      onTap: widget.changePolylines,
+                      child: Container(
+                        margin: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+                        height: 45,
+                        decoration:
+                            BoxDecoration(color: orange, borderRadius: BorderRadius.circular(10)),
+                        alignment: Alignment.center,
+                        child: setText(
+                            widget.isReality ? 'Xem đường đi chỉ dẫn' : 'Xem đường đi thực tế', 16,
+                            fontWeight: FontWeight.w600, color: white),
+                      ),
                     ),
-                  ),
-                SizedBox(height: bottomPadding),
-              ],
+                  SizedBox(height: bottomPadding),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -167,7 +168,8 @@ class _EmployeeOrderState extends State<EmployeeOrder> {
   }
 
   _item(int index) {
-    final item = listOrder[index];
+    final item = widget.listOrder[index];
+    bool check = !user.dataUser!.isManager! && item.status == 0;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
@@ -179,73 +181,113 @@ class _EmployeeOrderState extends State<EmployeeOrder> {
                 height: widget.height,
                 confirmOrder: () {
                   if (widget.confirmOrder != null) {
-                    widget.confirmOrder!(listOrder.length - 1 - index);
+                    widget.confirmOrder!(index);
                   }
                 },
                 id: item.id!));
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        color: item.id == curOrder ? const Color(0xffFFF3E5) : white,
+        color: item.isTarget == true
+            ? const Color(0xffFFF3E5)
+            : item.status == 1
+                ? green.withOpacity(0.15)
+                : white,
         child: Column(
           children: [
-            const SizedBox(height: 3),
+            const SizedBox(height: 8),
             Row(
               children: [
-                index == listOrder.length - 1
-                    ? Container(
-                        width: 38,
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.radio_button_checked, color: blue, size: 22))
-                    : Container(
-                        width: 38,
-                        alignment: Alignment.center,
-                        child: setText('${item.poinNumber}', 18,
-                            fontWeight: FontWeight.w700, color: blue)),
+                Container(
+                    width: 38,
+                    alignment: Alignment.center,
+                    child: setText('${item.poinNumber}', 18,
+                        fontWeight: FontWeight.w700, color: blue)),
                 const SizedBox(width: 10),
                 Expanded(
                     child: setText(item.namePoint ?? '', 18,
                         fontWeight: FontWeight.w600, color: black)),
                 if (item.status == 1)
                   setText(DateFormat('HH:mm').format(item.timeFinished!), 14,
-                      fontWeight: FontWeight.w600, color: green)
+                      fontWeight: FontWeight.w800, color: green)
               ],
             ),
-            const SizedBox(height: 2),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                index == widget.listOrder.length - 1
-                    ? const SizedBox(width: 38)
-                    : Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 18),
-                        height: 55,
-                        width: 2,
-                        color: blue),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      setText(item.strAddress ?? '', 12, color: gray),
-                      const SizedBox(height: 3),
-                      setText('Điểm dừng số ${item.poinNumber}', 12, color: gray),
-                    ],
-                  ),
-                )
-              ],
+            const SizedBox(height: 3),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  index == widget.listOrder.length - 1
+                      ? const SizedBox(width: 38)
+                      : Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 18),
+                          width: 2,
+                          color: blue),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        setText(item.strAddress ?? '', 12, color: gray),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            setText('Điểm dừng số ${item.poinNumber}', 12, color: gray),
+                            item.distance == null
+                                ? const SizedBox()
+                                : Row(
+                                    children: [
+                                      Container(
+                                        height: 5,
+                                        width: 5,
+                                        decoration: const BoxDecoration(
+                                            color: gray, shape: BoxShape.circle),
+                                        margin: const EdgeInsets.symmetric(horizontal: 10),
+                                      ),
+                                      setText(item.distance?.text ?? '', 12, color: gray),
+                                      Container(
+                                        height: 5,
+                                        width: 5,
+                                        decoration: const BoxDecoration(
+                                            color: gray, shape: BoxShape.circle),
+                                        margin: const EdgeInsets.symmetric(horizontal: 10),
+                                      ),
+                                      setText(item.duration?.text ?? '', 12, color: gray),
+                                    ],
+                                  )
+                          ],
+                        ),
+                        if (check)
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              controller.close();
+
+                              widget.onDirection!(item.id);
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 5),
+                              child: Row(
+                                children: [
+                                  setText('Chỉ đường', 14, color: Colors.blue),
+                                  const SizedBox(width: 10),
+                                  const RotatedBox(
+                                      quarterTurns: 1,
+                                      child: Icon(Icons.navigation, color: Colors.blue))
+                                ],
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  )
+                ],
+              ),
             ),
-            SizedBox(height: index == widget.listOrder.length - 1 ? 20 : 0)
           ],
         ),
       ),
     );
-  }
-
-  int get curOrder {
-    if (widget.listOrder.every((element) => element.status == 1)) {
-      return -1;
-    }
-    return widget.listOrder.firstWhere((element) => element.status == 0).id!;
   }
 }

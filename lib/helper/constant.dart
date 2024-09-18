@@ -1,13 +1,12 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:itinerary_monitoring/api/models/init_data.dart';
 import 'package:itinerary_monitoring/api/models/user_model.dart';
 
 late UserModel user;
 double kPadding = 16;
-bool isStart = false;
-bool isEnd = false;
-int timeCallApi = 0;
+late InitData initData;
 
 double get bottomPadding {
   double a = EdgeInsets.fromViewPadding(

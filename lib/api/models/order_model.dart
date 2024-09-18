@@ -33,6 +33,9 @@ class OrderModel {
   double? lng;
   double? lat;
   List<PointLatLng>? overviewPolyline;
+  bool? isTarget;
+  Distance? distance;
+  Distance? duration;
 
   OrderModel({
     this.id,
@@ -57,6 +60,9 @@ class OrderModel {
     this.lng,
     this.lat,
     this.overviewPolyline,
+    this.isTarget,
+    this.distance,
+    this.duration,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) => OrderModel(
@@ -79,15 +85,19 @@ class OrderModel {
         strDistance: json["str_distance"],
         strDuration: json["str_duration"],
         strAddress: json["str_address"],
+        isTarget: json["is_target"],
         lng: json["lng"]?.toDouble(),
         lat: json["lat"]?.toDouble(),
         overviewPolyline: json["overview_polyline"] == null
             ? null
             : PolylinePoints().decodePolyline(json["overview_polyline"]),
+        distance: json["distance"] == null ? null : Distance.fromJson(json["distance"]),
+        duration: json["duration"] == null ? null : Distance.fromJson(json["duration"]),
       );
 
   Map<String, dynamic> toJson() => {
         "id": id,
+        "is_target": isTarget,
         "name_point": namePoint,
         "to_time": toTime?.toIso8601String(),
         "city": city,
@@ -109,5 +119,27 @@ class OrderModel {
         "lng": lng,
         "lat": lat,
         "overview_polyline": overviewPolyline,
+        "distance": distance?.toJson(),
+        "duration": duration?.toJson(),
+      };
+}
+
+class Distance {
+  String? text;
+  double? value;
+
+  Distance({
+    this.text,
+    this.value,
+  });
+
+  factory Distance.fromJson(Map<String, dynamic> json) => Distance(
+        text: json["text"],
+        value: json["value"]?.toDouble(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        "text": text,
+        "value": value,
       };
 }

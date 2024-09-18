@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -70,7 +69,7 @@ Future<void> checkPermissionAlways(GlobalKey key) async {
         context: key.currentContext!,
         builder: (c) {
           return CupertinoAlertDialog(
-            title: const Text('Vui lòng cấp quyền vị trí luôn cho phép'),
+            title: const Text('Vui lòng cấp quyền vị trí thành luôn cho phép'),
             actions: <Widget>[
               TextButton(
                   onPressed: () async {
@@ -87,17 +86,20 @@ Future<void> checkPermissionAlways(GlobalKey key) async {
   }
 }
 
-void listenLocation() {
+void listenLocation(Function func) {
   location.enableBackgroundMode();
-  location.changeSettings(interval: timeCallApi * 1000);
+  location.changeSettings(
+      accuracy: loc.LocationAccuracy.low,
+      interval: initData.isTimeCallApi! * 1000);
   _locationSubscription = location.onLocationChanged.handleError((dynamic err) {
     _locationSubscription?.cancel();
     _locationSubscription = null;
   }).listen((loc.LocationData current) {
-    if (isStart && !isEnd) {
+    if (initData.isStart! && !initData.isEnd!) {
       if (calculateDistance(lastPosition, LatLng(current.latitude!, current.longitude!)) > 5) {
         lastPosition = LatLng(current.latitude!, current.longitude!);
-        updateLocation(lat: current.latitude, lng: current.longitude, token: user.token);
+        updateLocation(lat: current.latitude, lng: current.longitude, token: user.token)
+            .then((value) => func());
       }
     }
   });

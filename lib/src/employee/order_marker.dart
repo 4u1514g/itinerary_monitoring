@@ -15,33 +15,29 @@ class OrderMarker extends StatelessWidget {
       children: List.generate(listKey.length, (index) {
         return RepaintBoundary(
           key: listKey[index],
-          child: listOrder[index].poinNumber == 1
-              ? const Icon(Icons.radio_button_checked, color: blue, size: 26)
-              : Stack(
-                  children: [
-                    Image(image: pinAsset, width: 26, color: color(listOrder[index])),
-                    Positioned(
-                        top: 4.88,
-                        left: 4.88,
-                        right: 4.88,
-                        child: Container(
-                            height: 16,
-                            width: 16,
-                            decoration: const BoxDecoration(color: white, shape: BoxShape.circle),
-                            alignment: Alignment.center,
-                            child: setText('${listOrder[index].poinNumber}', 13,
-                                fontWeight: FontWeight.w600,
-                                height: 1,
-                                color: color(listOrder[index]))))
-                  ],
-                ),
+          child: Stack(
+            children: [
+              Image(image: pinAsset, width: 26, color: color(listOrder[index])),
+              Positioned(
+                  top: 4.88,
+                  left: 4.88,
+                  right: 4.88,
+                  child: Container(
+                      height: 16,
+                      width: 16,
+                      decoration: const BoxDecoration(color: white, shape: BoxShape.circle),
+                      alignment: Alignment.center,
+                      child: setText('${listOrder[index].poinNumber}', 13,
+                          fontWeight: FontWeight.w600, height: 1, color: color(listOrder[index]))))
+            ],
+          ),
         );
       }),
     ));
   }
 
   Color color(OrderModel item) {
-    if (item.id == curOrder) {
+    if (item.isTarget!) {
       return orange;
     } else if (item.status == 0) {
       return blue;

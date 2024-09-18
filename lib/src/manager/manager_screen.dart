@@ -92,7 +92,7 @@ class _ManagerScreenState extends State<ManagerScreen> {
       ),
       body: Stack(
         children: [
-          if (listKey.isNotEmpty)
+          if (listEmployee.isNotEmpty)
             EmployeeMarker(key: UniqueKey(), listKey: listKey, listEmployee: listEmployee),
           if (listOrder.isNotEmpty)
             OrderMarker(key: UniqueKey(), listKey: orderKey, listOrder: listOrder),
@@ -179,7 +179,27 @@ class _ManagerScreenState extends State<ManagerScreen> {
     );
   }
 
+  void getData() async {
+    showLoaderDialog(context);
+    await getEmployee(token: user.token).then((value) async {
+      setState(() {
+        listEmployee = value;
+        listKey = List.generate(value.length, (index) => GlobalKey());
+      });
+      cancelLoaderDialog(context);
+      Future.delayed(const Duration(milliseconds: 500), () async {
+        await Future.wait(List.generate(listKey.length, (i) async {
+          Marker m = await generateMarker(i);
+          markers.add(m);
+        })).whenComplete(() => setState(() {}));
+      });
+    }).onError((error, stackTrace) {
+      showLoaderDialog(context);
+    });
+  }
+
   void onClear() {
+    socket.off('change-location-by-employee-id-${employee!.employeeId}');
     setState(() {
       employee = null;
       listActive = true;
@@ -187,6 +207,51 @@ class _ManagerScreenState extends State<ManagerScreen> {
       orderMarkers.clear();
       orderKey.clear();
       polylines.clear();
+    });
+  }
+
+  void onPick(int index) async {
+    setState(() {
+      listActive = false;
+      employee = listEmployee[index];
+      actualMarkers.clear();
+    });
+
+    socket.on('change-location-by-employee-id-${listEmployee[index].employeeId}', (data) async {
+      getOrder(index);
+    });
+    showLoaderDialog(context);
+    getOrder(index).then((value) {
+      cancelLoaderDialog(context);
+    }).onError((error, stackTrace) {
+      cancelLoaderDialog(context);
+    });
+  }
+
+  Future<void> getOrder(int index) async {
+    await getEmployeeOrder(
+            id: employee!.employeeId, date: date.toString().substring(0, 10), token: user.token)
+        .then((value) async {
+      setState(() {
+        listOrder.clear();
+        listOrder.addAll(value);
+        orderMarkers.clear();
+        orderKey.clear();
+        orderKey.addAll(List.generate(value.length, (index) => GlobalKey()));
+      });
+
+      if (listOrder.isNotEmpty) {
+        final GoogleMapController controller = await _controller.future;
+        await controller
+            .animateCamera(CameraUpdate.newLatLng(LatLng(employee!.lat!, employee!.lng!)));
+        getPolylines(index);
+        Future.delayed(const Duration(milliseconds: 500), () async {
+          await Future.wait(List.generate(listOrder.length, (i) async {
+            Marker m = await generateOrderMarker(i);
+            orderMarkers.add(m);
+          })).whenComplete(() => setState(() {}));
+        });
+      }
     });
   }
 
@@ -200,7 +265,7 @@ class _ManagerScreenState extends State<ManagerScreen> {
       if (actualMarkers.isEmpty) {
         showLoaderDialog(context);
         getEmployeeRoute(
-                id: employee!.id, date: date.toString().substring(0, 10), token: user.token)
+                id: employee!.employeeId, date: date.toString().substring(0, 10), token: user.token)
             .then((value) async {
           await Future.wait(List.generate(value.length, (i) async {
             Marker m = await generateActualMarker(value[i]);
@@ -221,52 +286,6 @@ class _ManagerScreenState extends State<ManagerScreen> {
         });
       }
     }
-  }
-
-  void onPick(int index) async {
-    showLoaderDialog(context);
-    setState(() {
-      listActive = false;
-      employee = listEmployee[index];
-      actualMarkers.clear();
-    });
-    await getEmployeeOrder(
-            id: employee!.id, date: date.toString().substring(0, 10), token: user.token)
-        .then((value) async {
-      setState(() {
-        polylines.clear();
-        listOrder.clear();
-        listOrder.addAll(value);
-        orderMarkers.clear();
-        orderKey.clear();
-        orderKey.addAll(List.generate(value.length, (index) => GlobalKey()));
-      });
-      cancelLoaderDialog(context);
-      if (listOrder.isNotEmpty) {
-        final GoogleMapController controller = await _controller.future;
-        await controller
-            .animateCamera(CameraUpdate.newLatLng(LatLng(listOrder[0].lat!, listOrder[0].lng!)));
-        for (var element in listOrder) {
-          if (element.overviewPolyline != null) {
-            polylines.add(Polyline(
-                polylineId: PolylineId('${element.id}'),
-                color: blue,
-                width: 3,
-                points: element.overviewPolyline!
-                    .map((e) => LatLng(e.latitude, e.longitude))
-                    .toList()));
-          }
-        }
-        Future.delayed(const Duration(milliseconds: 500), () async {
-          await Future.wait(List.generate(listOrder.length, (i) async {
-            Marker m = await generateOrderMarker(i);
-            orderMarkers.add(m);
-          })).whenComplete(() => setState(() {}));
-        });
-      }
-    }).onError((error, stackTrace) {
-      cancelLoaderDialog(context);
-    });
   }
 
   void employeeList() async {
@@ -290,22 +309,24 @@ class _ManagerScreenState extends State<ManagerScreen> {
     });
   }
 
-  void getData() async {
-    showLoaderDialog(context);
-    await getEmployee(token: user.token).then((value) async {
+  void getPolylines(index) {
+    getEmployeeDirection(id: employee!.employeeId, token: user.token).then((direction) async {
+      listEmployee[index].lat = direction.currentLocation!.lat!;
+      listEmployee[index].lng = direction.currentLocation!.lng!;
+      Marker m = await generateMarker(index);
+      orderMarkers.removeWhere((element) => element.markerId.value == 'employee#$index');
+      orderMarkers.add(m);
+      var polylinePoints = direction.data!.routes!.first.overviewPolyline!.polylinePoints!
+          .map((e) => LatLng(e.latitude, e.longitude))
+          .toList();
       setState(() {
-        listEmployee = value;
-        listKey = List.generate(value.length, (index) => GlobalKey());
+        polylines.clear();
+        polylines.add(Polyline(
+            polylineId: const PolylineId('polyline'),
+            color: blue,
+            width: 3,
+            points: polylinePoints));
       });
-      cancelLoaderDialog(context);
-      Future.delayed(const Duration(milliseconds: 500), () async {
-        await Future.wait(List.generate(listKey.length, (i) async {
-          Marker m = await generateMarker(i);
-          markers.add(m);
-        })).whenComplete(() => setState(() {}));
-      });
-    }).onError((error, stackTrace) {
-      showLoaderDialog(context);
     });
   }
 
@@ -316,11 +337,10 @@ class _ManagerScreenState extends State<ManagerScreen> {
     final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     final Uint8List pngBytes = byteData!.buffer.asUint8List();
     return Marker(
-        zIndex: 1000.0 - index,
-        markerId: MarkerId(index.toString()),
+        markerId: MarkerId('employee#$index'),
         icon: BitmapDescriptor.bytes(pngBytes),
         position: LatLng(listEmployee[index].lat!, listEmployee[index].lng!),
-        onTap: () {});
+        onTap: () => onPick(index));
   }
 
   Future<Marker> generateOrderMarker(int index) async {

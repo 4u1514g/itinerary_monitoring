@@ -3,7 +3,6 @@ import 'package:itinerary_monitoring/src/employee/employee_screen.dart';
 import 'package:itinerary_monitoring/helper/constant.dart';
 import 'package:itinerary_monitoring/helper/location_service.dart';
 import 'package:itinerary_monitoring/src/manager/manager_screen.dart';
-import 'package:itinerary_monitoring/src/order_list.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class CheckPermission extends StatefulWidget {

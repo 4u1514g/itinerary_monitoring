@@ -9,9 +9,9 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:itinerary_monitoring/api/api_utils.dart';
 import 'package:itinerary_monitoring/api/models/order_model.dart';
 import 'package:itinerary_monitoring/itinerary_monitoring.dart';
+import 'package:itinerary_monitoring/src/employee/employee_order.dart';
 import 'package:itinerary_monitoring/src/employee/order_marker.dart';
 import 'package:itinerary_monitoring/helper/constant.dart';
-import 'package:itinerary_monitoring/src/employee/employee_order.dart';
 import 'package:itinerary_monitoring/helper/location_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -33,47 +33,26 @@ class _EmployeeScreenState extends State<EmployeeScreen> with WidgetsBindingObse
   List<OrderModel> listOrder = [];
   Set<Polyline> polylines = {};
   bool load = true;
+  int curOrder = -1;
+  late LatLng current;
+  ui.AppLifecycleState state = AppLifecycleState.resumed;
 
   @override
   void initState() {
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       checkPermissionAlways(employeeKey);
+      init();
     });
-    init();
     super.initState();
   }
 
-  void init() async {
-    getInit(token: user.token).then((value) {
-      if (mounted) {
-        setState(() {
-          isStart = value['is_start'];
-          isEnd = value['is_end'];
-          timeCallApi = value['is_time_call_api'];
-          load = false;
-          listenLocation();
-        });
-      }
+  @override
+  void didChangeAppLifecycleState(ui.AppLifecycleState s) {
+    setState(() {
+      state = s;
     });
-    getMyOrderToday(token: user.token).then((value) async {
-      if (mounted) {
-        setState(() {
-          listOrder.addAll(value);
-          orderKey.addAll(List.generate(value.length, (index) => GlobalKey()));
-        });
-        if (value.isNotEmpty) {
-          getOrder();
-        }
-      }
-    });
-    location.getLocation().then((value) async {
-      if (mounted) {
-        var current = LatLng(value.latitude!, value.longitude!);
-        final GoogleMapController controller = await _controller.future;
-        await controller.animateCamera(CameraUpdate.newLatLng(current));
-      }
-    });
+    super.didChangeAppLifecycleState(state);
   }
 
   @override
@@ -118,12 +97,13 @@ class _EmployeeScreenState extends State<EmployeeScreen> with WidgetsBindingObse
                   right: 0,
                   height: MediaQuery.of(context).size.height - 80 - paddingTop,
                   child: EmployeeOrder(
-                      key: UniqueKey(),
+                      key: ValueKey(curOrder),
                       height: MediaQuery.of(context).size.height - 80 - paddingTop,
                       date: date,
-                      active: isStart,
+                      active: initData.isStart!,
                       listOrder: listOrder,
                       confirmOrder: confirmOrder,
+                      onDirection: onDirection,
                       name: '${user.dataUser!.firstName!} ${user.dataUser!.lastName!}')),
         ],
       ),
@@ -148,7 +128,7 @@ class _EmployeeScreenState extends State<EmployeeScreen> with WidgetsBindingObse
           child: Container(
             height: 45,
             width: 45,
-            decoration: BoxDecoration(color: white, shape: BoxShape.circle),
+            decoration: const BoxDecoration(color: white, shape: BoxShape.circle),
             alignment: Alignment.center,
             child: const Icon(Icons.power_settings_new, size: 26),
           ),
@@ -158,7 +138,7 @@ class _EmployeeScreenState extends State<EmployeeScreen> with WidgetsBindingObse
   }
 
   _start() {
-    if (isStart) return const SizedBox();
+    if (initData.isStart!) return const SizedBox();
     return Container(
         height: 104,
         width: 104,
@@ -179,20 +159,51 @@ class _EmployeeScreenState extends State<EmployeeScreen> with WidgetsBindingObse
         ));
   }
 
-  void getOrder() async {
-    final GoogleMapController controller = await _controller.future;
-    await controller
-        .animateCamera(CameraUpdate.newLatLng(LatLng(listOrder.first.lat!, listOrder.first.lng!)));
-    for (var element in listOrder) {
-      if (element.overviewPolyline != null && element.status == 0) {
-        polylines.add(Polyline(
-            polylineId: PolylineId('${element.id}'),
-            color: blue,
-            width: 3,
-            points:
-                element.overviewPolyline!.map((e) => LatLng(e.latitude, e.longitude)).toList()));
-      }
-    }
+  void init() async {
+    showLoaderDialog(context);
+    location.getLocation().then((value) async {
+      current = LatLng(value.latitude!, value.longitude!);
+      final GoogleMapController controller = await _controller.future;
+      await controller.animateCamera(CameraUpdate.newLatLng(current));
+      await getInit(token: user.token).then((res) {
+        if (mounted) {
+          setState(() {
+            initData = res;
+            load = false;
+          });
+          getMyOrderToday(token: user.token).then((value) async {
+            if (mounted) {
+              setState(() {
+                listOrder.addAll(value);
+                orderKey.addAll(List.generate(value.length, (index) => GlobalKey()));
+              });
+              if (value.isNotEmpty) {
+                curOrder = listOrder.every((element) => element.status == 1)
+                    ? -1
+                    : listOrder.firstWhere((element) => element.status == 0).id!;
+                getOrder();
+
+                if (initData.target != null) {
+                  curOrder = initData.target!.orderId!;
+                  onReloadDirection();
+                } else if (initData.isStart! && curOrder != -1) {
+                  updateTarget(id: curOrder, token: user.token).then((_) {
+                    onReloadDirection();
+                  });
+                }
+                listenLocation(onReloadDirection);
+              }
+              cancelLoaderDialog(context);
+            }
+          }).onError((error, stackTrace) {
+            cancelLoaderDialog(context);
+          });
+        }
+      });
+    });
+  }
+
+  void getOrder() {
     Future.delayed(const Duration(milliseconds: 500), () async {
       await Future.wait(List.generate(listOrder.length, (i) async {
         Marker m = await generateOrderMarker(i);
@@ -220,21 +231,59 @@ class _EmployeeScreenState extends State<EmployeeScreen> with WidgetsBindingObse
   }
 
   void onStart() {
-    startSession(token: user.token).then((value) {
+    startSession(lng: current.longitude, lat: current.latitude, token: user.token).then((value) {
       setState(() {
-        isStart = true;
+        initData.isStart = true;
+        onReloadDirection().whenComplete(() {
+          _setMapFitToTour(polylines);
+        });
       });
     });
   }
 
-  int get curOrder {
-    return listOrder.firstWhere((element) => element.status == 0).id!;
+  void onDirection(int id) {
+    showLoaderDialog(context);
+    updateTarget(id: id, token: user.token).then((res) {
+      getMyOrderToday(token: user.token).then((value) async {
+        setState(() {
+          listOrder.clear();
+          orderKey.clear();
+          listOrder.addAll(value);
+          orderKey.addAll(List.generate(value.length, (index) => GlobalKey()));
+          curOrder = id;
+        });
+        getOrder();
+        onReloadDirection();
+        cancelLoaderDialog(context);
+      }).onError((error, stackTrace) {
+        cancelLoaderDialog(context);
+      });
+    });
+  }
+
+  Future<void> onReloadDirection() async {
+    if (state == AppLifecycleState.resumed) {
+      getDirection(token: user.token).then((direction) {
+        var polylinePoints = direction.data!.routes!.first.overviewPolyline!.polylinePoints!
+            .map((e) => LatLng(e.latitude, e.longitude))
+            .toList();
+        if (mounted) {
+          setState(() {
+            polylines.clear();
+            polylines.add(Polyline(
+                polylineId: const PolylineId('polyline'),
+                color: blue,
+                width: 3,
+                points: polylinePoints));
+          });
+        }
+      });
+    }
   }
 
   void confirmOrder(int index) async {
     showLoaderDialog(context);
     await updateOrder(id: listOrder[index].id, token: user.token).then((value) {
-      print(value);
       cancelLoaderDialog(context);
       Navigator.pop(context);
       getMyOrderToday(token: user.token).then((value) async {
@@ -245,9 +294,11 @@ class _EmployeeScreenState extends State<EmployeeScreen> with WidgetsBindingObse
             listOrder.addAll(value);
             orderKey.addAll(List.generate(value.length, (index) => GlobalKey()));
           });
-          if (value.isNotEmpty) {
-            getOrder();
-          }
+          getOrder();
+          curOrder = listOrder.every((element) => element.status == 1)
+              ? -1
+              : listOrder.firstWhere((element) => element.status == 0).id!;
+          polylines.clear();
         }
       });
     }).onError((error, stackTrace) {
@@ -280,8 +331,10 @@ class _EmployeeScreenState extends State<EmployeeScreen> with WidgetsBindingObse
                   onPressed: () {
                     stopListen();
                     SharedPreferences.getInstance().then((pref) => pref.remove('account'));
-                    Navigator.pushAndRemoveUntil(context,
-                        MaterialPageRoute(builder: (context) => const SignIn()), (route) => route.isFirst);
+                    Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (context) => const SignIn()),
+                        (route) => route.isFirst);
                   },
                   child:
                       const Text('Đăng xuất', style: TextStyle(color: Colors.blue, fontSize: 15))),
@@ -293,5 +346,29 @@ class _EmployeeScreenState extends State<EmployeeScreen> with WidgetsBindingObse
             ],
           );
         });
+  }
+
+  void _setMapFitToTour(Set<Polyline> p) {
+    Future.delayed(
+      const Duration(seconds: 1),
+      () async {
+        double minLat = p.first.points.first.latitude;
+        double minLong = p.first.points.first.longitude;
+        double maxLat = p.first.points.first.latitude;
+        double maxLong = p.first.points.first.longitude;
+        for (var poly in p) {
+          for (var point in poly.points) {
+            if (point.latitude < minLat) minLat = point.latitude;
+            if (point.latitude > maxLat) maxLat = point.latitude;
+            if (point.longitude < minLong) minLong = point.longitude;
+            if (point.longitude > maxLong) maxLong = point.longitude;
+          }
+        }
+        final GoogleMapController controller = await _controller.future;
+        controller.moveCamera(CameraUpdate.newLatLngBounds(
+            LatLngBounds(southwest: LatLng(minLat, minLong), northeast: LatLng(maxLat, maxLong)),
+            70));
+      },
+    );
   }
 }

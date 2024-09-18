@@ -95,6 +95,7 @@ class _OrderDetailState extends State<OrderDetail> {
                                 ),
                                 const SizedBox(height: 2),
                                 setText(order.strAddress ?? '', 12, color: gray),
+
                               ],
                             ))
                           ],
